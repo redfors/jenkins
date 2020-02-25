@@ -1,24 +1,41 @@
 #!groovy
-// Check ub1 properties
+// Run docker build
 properties([disableConcurrentBuilds()])
 
 pipeline {
     agent { 
         label 'master'
         }
+    triggers { pollSCM('* * * * *') }
     options {
         buildDiscarder(logRotator(numToKeepStr: '10', artifactNumToKeepStr: '10'))
         timestamps()
     }
     stages {
-        stage("First step") {
+        stage("docker login") {
             steps {
-                sh 'ssh root@194.67.92.67 \'hostname\''
+                echo " ============== docker login =================="
+                withCredentials([usernamePassword(credentialsId: 'dockerhub_semaev', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
+                    sh """
+                    docker login -u $USERNAME -p $PASSWORD
+                    """
+                }
             }
         }
-        stage("Second step") {
+        stage("create docker image") {
             steps {
-                sh 'ssh root@194.67.92.67 \'uptime\''
+                echo " ============== start building image =================="
+                dir ('docker/toolbox') {
+                	sh 'docker build -t semaev/toolbox:latest . '
+                }
+            }
+        }
+        stage("docker push") {
+            steps {
+                echo " ============== start pushing image =================="
+                sh '''
+                docker push semaev/toolbox:latest
+                '''
             }
         }
     }
